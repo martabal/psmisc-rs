@@ -1,0 +1,21 @@
+[package]
+name = "procedre"
+version = "0.0.1"
+description = "Rust implementation of pstree"
+keywords = ["pstree"]
+categories = ["command-line-utilities", "os"]
+license.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[features]
+default = ["rayon"]
+rayon = ["dep:rayon"]
+
+[dependencies]
+clap = { version = "4.5.46", features = ["derive"] }
+rayon = { version = "1.11.0", optional = true }
+helpers = { path = "../helpers" }

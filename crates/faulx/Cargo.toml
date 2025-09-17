@@ -1,0 +1,22 @@
+[package]
+name = "faulx"
+version = "0.0.1"
+description = "Rust implementation of killall"
+keywords = ["killall"]
+categories = ["command-line-utilities", "os"]
+license.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[features]
+default = ["rayon"]
+rayon = ["dep:rayon"]
+
+[dependencies]
+clap.workspace = true
+nix.workspace = true
+rayon = { workspace = true, optional = true }
+helpers = { path = "../helpers" }
