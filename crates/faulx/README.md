@@ -9,12 +9,12 @@ options implemented:
 - custom signal
 - verbose
 - list signals
+- younger/older than
 
 TODO:
 
 - exact
 - ignore case
-- younger/older than
 - interactive mode
 - regexp
 - kill process running as user

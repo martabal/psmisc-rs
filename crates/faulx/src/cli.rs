@@ -36,6 +36,14 @@ pub struct FaulxArgs {
     #[arg(short = 'g', long)]
     pub process_group: bool,
 
+    /// kill process younger than TIME
+    #[arg(short = 'y', long)]
+    pub younger_than: Option<humantime::Duration>,
+
+    /// kill process older than TIME
+    #[arg(short = 'o', long)]
+    pub older_than: Option<humantime::Duration>,
+
     /// Report if the signal was successfully sent
     #[arg(long)]
     pub verbose: bool,

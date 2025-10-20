@@ -9,7 +9,7 @@ use nix::{
 use faulx::{
     cli::{FaulxArgs, MAX_NAMES},
     macros::QUIET,
-    processes::list_pids,
+    processes::{OptionsPids, list_pids},
     qprintln,
     signals::{list_signals, parse_signal},
 };
@@ -45,7 +45,12 @@ fn main() {
     });
 
     for process_name in &args.process_names {
-        let pids = match list_pids(process_name, args.process_group) {
+        let opts = OptionsPids {
+            use_group: args.process_group,
+            younger_than: args.younger_than,
+            older_than: args.older_than,
+        };
+        let pids = match list_pids(process_name, &opts) {
             Ok(pids) => pids,
             Err(e) => {
                 qprintln!("Error: {e}");
