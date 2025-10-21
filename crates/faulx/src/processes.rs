@@ -15,8 +15,6 @@ pub struct OptionsPids {
 
 pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<dyn Error>> {
     let target_bytes = target_name.as_bytes();
-    let uptime = get_system_uptime();
-    let ticks = get_clock_ticks_per_sec()?;
 
     let entries = fs::read_dir(PROC)?;
     #[cfg(feature = "rayon")]
@@ -29,7 +27,10 @@ pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<d
         .filter_map(|entry| {
             let pid = check_entry(&entry, target_bytes)?;
             let stat = check_stat(pid)?;
-            if check_time(&stat, opt.younger_than, opt.older_than, uptime, ticks) {
+            if matches!(
+                check_time(&stat, opt.younger_than, opt.older_than),
+                Ok(true)
+            ) {
                 Some(pid)
             } else {
                 None
@@ -46,12 +47,12 @@ pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<d
         .filter_map(|&pid| check_stat(pid).map(|s| s.pgrp))
         .collect();
 
-    groups.sort_unstable();
-    groups.dedup();
-
     if groups.is_empty() {
         return Ok(matching_pids);
     }
+
+    groups.sort_unstable();
+    groups.dedup();
 
     let entries = fs::read_dir(PROC)?;
     #[cfg(feature = "rayon")]
@@ -65,7 +66,10 @@ pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<d
             let pid = parse_pid_from_bytes(entry.file_name().as_bytes())?;
             let stat = check_stat(pid)?;
             if groups.binary_search(&stat.pgrp).is_ok()
-                && check_time(&stat, opt.younger_than, opt.older_than, uptime, ticks)
+                && matches!(
+                    check_time(&stat, opt.younger_than, opt.older_than),
+                    Ok(true)
+                )
             {
                 Some(pid)
             } else {
@@ -124,15 +128,16 @@ fn check_time(
     pid_stat: &Stat,
     younger_than: Option<humantime::Duration>,
     older_than: Option<humantime::Duration>,
-    system_uptime_secs: f64,
-    ticks_per_sec: f64,
-) -> bool {
+) -> Result<bool, Box<dyn Error>> {
     if younger_than.is_none() && older_than.is_none() {
-        return true;
+        return Ok(true);
     }
 
+    let system_uptime_secs = get_system_uptime();
+    let ticks_per_sec = get_clock_ticks_per_sec()?;
+
     if ticks_per_sec <= 0.0 || system_uptime_secs <= 0.0 {
-        return false;
+        return Ok(false);
     }
 
     let starttime_secs = pid_stat.starttime / ticks_per_sec;
@@ -141,14 +146,14 @@ fn check_time(
     if let Some(max_age) = younger_than
         && process_age_secs >= max_age.as_secs_f64()
     {
-        return false;
+        return Ok(false);
     }
     if let Some(min_age) = older_than
         && process_age_secs < min_age.as_secs_f64()
     {
-        return false;
+        return Ok(false);
     }
-    true
+    Ok(true)
 }
 
 fn check_entry(entry: &fs::DirEntry, target_bytes: &[u8]) -> Option<i32> {
@@ -237,6 +242,6 @@ mod tests {
             pgrp: 1,
             starttime: 0.0,
         };
-        assert!(check_time(&dummy_stat, None, None, 100.0, 100.0));
+        assert_eq!(check_time(&dummy_stat, None, None).unwrap(), true);
     }
 }

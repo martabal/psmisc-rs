@@ -10,6 +10,7 @@ options implemented:
 - verbose
 - list signals
 - younger/older than
+- wait for process to die
 
 TODO:
 
@@ -18,5 +19,4 @@ TODO:
 - interactive mode
 - regexp
 - kill process running as user
-- wait for process to die
 - processes in the same namespace
