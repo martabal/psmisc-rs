@@ -1,4 +1,8 @@
-use std::{process, sync::atomic::Ordering};
+use std::{
+    io::{self, Write},
+    process,
+    sync::atomic::Ordering,
+};
 
 use clap::Parser;
 use nix::{
@@ -51,6 +55,7 @@ fn main() {
             use_group: args.process_group,
             younger_than: args.younger_than,
             older_than: args.older_than,
+            ignore_case: args.ignore_case,
         };
         let pids = match list_pids(process_name, &opts) {
             Ok(pids) => pids,
@@ -76,7 +81,9 @@ fn main() {
             loop {
                 let alive_pids: Vec<i32> = pids_iter
                     .clone()
-                    .filter_map(|&pid| kill_process(pid, sig, args.verbose, process_name))
+                    .filter_map(|&pid| {
+                        kill_process(pid, sig, args.verbose, process_name, args.interactive)
+                    })
                     .collect();
 
                 if alive_pids.is_empty() {
@@ -104,13 +111,43 @@ fn main() {
             let pids_iter = pids.iter();
 
             pids_iter.for_each(|pid| {
-                kill_process(*pid, sig, args.verbose, process_name);
+                kill_process(*pid, sig, args.verbose, process_name, args.interactive);
             });
         }
     }
 }
 
-fn kill_process(pid: i32, sig: Signal, verbose: bool, process_name: &str) -> Option<i32> {
+fn kill_process(
+    pid: i32,
+    sig: Signal,
+    verbose: bool,
+    process_name: &str,
+    interactive: bool,
+) -> Option<i32> {
+    if interactive {
+        loop {
+            print!("Kill {process_name}({pid}) ? (y/N) ");
+            io::stdout().flush().unwrap();
+
+            let mut input = String::new();
+            if io::stdin().read_line(&mut input).is_err() {
+                eprintln!("Failed to read input.");
+                continue;
+            }
+
+            match input.trim().to_lowercase().as_str() {
+                "y" | "yes" => break,
+                "n" | "no" => {
+                    println!("Aborted killing {process_name} ({pid}).");
+                    return None;
+                }
+                _ => {
+                    println!("Please enter 'y' or 'n'.");
+                }
+            }
+        }
+    }
+
     match kill(Pid::from_raw(pid), sig) {
         Ok(()) => {
             if verbose {

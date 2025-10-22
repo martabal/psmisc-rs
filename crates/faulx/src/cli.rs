@@ -48,6 +48,14 @@ pub struct FaulxArgs {
     #[arg(short = 'w', long)]
     pub wait: bool,
 
+    /// Ask for confirmation before killing
+    #[arg(short = 'i', long)]
+    pub interactive: bool,
+
+    /// Case insensitive process name match
+    #[arg(short = 'I', long)]
+    pub ignore_case: bool,
+
     /// Report if the signal was successfully sent
     #[arg(long)]
     pub verbose: bool,

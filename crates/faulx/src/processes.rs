@@ -11,6 +11,7 @@ pub struct OptionsPids {
     pub use_group: bool,
     pub younger_than: Option<humantime::Duration>,
     pub older_than: Option<humantime::Duration>,
+    pub ignore_case: bool,
 }
 
 pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<dyn Error>> {
@@ -25,7 +26,7 @@ pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<d
     let matching_pids: Vec<i32> = iter
         .filter_map(std::result::Result::ok)
         .filter_map(|entry| {
-            let pid = check_entry(&entry, target_bytes)?;
+            let pid = check_entry(&entry, target_bytes, opt.ignore_case)?;
             let stat = check_stat(pid)?;
             if matches!(
                 check_time(&stat, opt.younger_than, opt.older_than),
@@ -156,7 +157,7 @@ fn check_time(
     Ok(true)
 }
 
-fn check_entry(entry: &fs::DirEntry, target_bytes: &[u8]) -> Option<i32> {
+fn check_entry(entry: &fs::DirEntry, target_bytes: &[u8], case_insensitive: bool) -> Option<i32> {
     let pid = parse_pid_from_bytes(entry.file_name().as_bytes())?;
 
     let comm_path = format!("{PROC}/{pid}/comm");
@@ -170,6 +171,14 @@ fn check_entry(entry: &fs::DirEntry, target_bytes: &[u8]) -> Option<i32> {
     } else {
         &buf[..len]
     };
+
+    if case_insensitive {
+        if name.eq_ignore_ascii_case(target_bytes) {
+            return Some(pid);
+        }
+        return None;
+    }
+
     (name == target_bytes).then_some(pid)
 }
 
@@ -228,7 +237,7 @@ mod tests {
 
         let result: Vec<i32> = fs::read_dir(&tmp)
             .unwrap()
-            .filter_map(|e| e.ok().and_then(|entry| check_entry(&entry, b"bash")))
+            .filter_map(|e| e.ok().and_then(|entry| check_entry(&entry, b"bash", false)))
             .collect();
 
         assert!(result.is_empty());
