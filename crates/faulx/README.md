@@ -13,10 +13,10 @@ options implemented:
 - wait for process to die
 - interactive mode
 - ignore case
+- kill process running as user
 
 TODO:
 
 - exact
 - regexp
-- kill process running as user
 - processes in the same namespace

@@ -13,6 +13,7 @@ use nix::{
 use rayon::prelude::*;
 
 use faulx::{
+    change_user,
     cli::{FaulxArgs, MAX_NAMES},
     macros::QUIET,
     processes::{OptionsPids, list_pids},
@@ -22,6 +23,10 @@ use faulx::{
 
 fn main() {
     let args = FaulxArgs::parse();
+
+    if let Some(user) = &args.user {
+        change_user(user);
+    }
 
     QUIET.store(args.quiet, Ordering::Relaxed);
 
@@ -138,7 +143,6 @@ fn kill_process(
             match input.trim().to_lowercase().as_str() {
                 "y" | "yes" => break,
                 "n" | "no" => {
-                    println!("Aborted killing {process_name} ({pid}).");
                     return None;
                 }
                 _ => {

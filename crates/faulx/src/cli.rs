@@ -56,6 +56,10 @@ pub struct FaulxArgs {
     #[arg(short = 'I', long)]
     pub ignore_case: bool,
 
+    /// Kill only process(es) running as USER
+    #[arg(short = 'u', long)]
+    pub user: Option<String>,
+
     /// Report if the signal was successfully sent
     #[arg(long)]
     pub verbose: bool,
