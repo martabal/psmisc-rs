@@ -46,13 +46,10 @@ fn main() {
     }
 
     let sig = args.signal.as_deref().map_or(Signal::SIGTERM, |name| {
-        parse_signal(name).map_or_else(
-            || {
-                qprintln!("{name}: unknown signal");
-                process::exit(1);
-            },
-            |s| s,
-        )
+        parse_signal(name).unwrap_or_else(|| {
+            qprintln!("{name}: unknown signal");
+            process::exit(1);
+        })
     });
 
     for process_name in &args.process_names {

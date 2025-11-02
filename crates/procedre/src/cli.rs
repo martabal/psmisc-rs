@@ -1,7 +1,6 @@
 use clap::{
     Parser,
     builder::{Styles, styling::AnsiColor},
-    command,
 };
 
 pub const MAX_NAMES: usize = std::mem::size_of::<usize>() * 8;
