@@ -1,3 +1,7 @@
+use clap::builder::{Styles, styling::AnsiColor};
+
+pub mod macros;
+
 pub fn parse_pid_from_bytes(bytes: &[u8]) -> Option<i32> {
     if bytes.is_empty() || bytes.len() > 10 {
         return None;
@@ -14,3 +18,9 @@ pub fn parse_pid_from_bytes(bytes: &[u8]) -> Option<i32> {
 }
 
 pub const PROC: &str = "/proc";
+
+pub const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().bold())
+    .usage(AnsiColor::Green.on_default().bold())
+    .literal(AnsiColor::Cyan.on_default().bold())
+    .placeholder(AnsiColor::Cyan.on_default());

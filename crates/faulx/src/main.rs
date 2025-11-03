@@ -5,21 +5,16 @@ use std::{
 };
 
 use clap::Parser;
+use helpers::{macros::QUIET, qprintln};
 use nix::{
     sys::signal::{Signal, kill},
     unistd::Pid,
 };
-#[cfg(feature = "orx-parallel")]
-use orx_parallel::{ParIter, ParallelizableCollection};
-#[cfg(feature = "rayon")]
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use faulx::{
     change_user,
     cli::{FaulxArgs, MAX_NAMES},
-    macros::QUIET,
     processes::{OptionsPids, list_pids},
-    qprintln,
     signals::{list_signals, parse_signal},
 };
 
@@ -79,14 +74,8 @@ fn main() {
             let timeout = std::time::Duration::from_secs(20);
 
             loop {
-                #[cfg(feature = "rayon")]
-                let pids_iter = pids.par_iter();
-                #[cfg(feature = "orx-parallel")]
-                let pids_iter = pids.par();
-                #[cfg(all(not(feature = "rayon"), not(feature = "orx-parallel")))]
-                let pids_iter = pids.iter();
-
-                let alive_pids: Vec<i32> = pids_iter
+                let alive_pids: Vec<i32> = pids
+                    .iter()
                     .filter_map(|&pid| {
                         kill_process(pid, sig, args.verbose, process_name, args.interactive)
                     })
@@ -111,14 +100,9 @@ fn main() {
                 std::thread::sleep(std::time::Duration::from_millis(1000));
             }
         } else {
-            #[cfg(feature = "rayon")]
-            let pids_iter = pids.par_iter();
-            #[cfg(not(feature = "rayon"))]
-            let pids_iter = pids.iter();
-
-            pids_iter.for_each(|pid| {
+            for pid in &pids {
                 kill_process(*pid, sig, args.verbose, process_name, args.interactive);
-            });
+            }
         }
     }
 }

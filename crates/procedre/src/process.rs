@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, fs, io};
+use std::{collections::HashMap, error::Error, fs};
 
 use helpers::{PROC, parse_pid_from_bytes};
 #[cfg(feature = "orx-parallel")]
@@ -6,7 +6,7 @@ use orx_parallel::{IterIntoParIter, ParIter};
 #[cfg(feature = "rayon")]
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ProcessState {
     Running,
     Sleeping,
@@ -16,7 +16,7 @@ pub enum ProcessState {
     Idle,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ProcessNode {
     pub pid: i32,
     pub ppid: i32,
@@ -48,26 +48,7 @@ impl ProcessNode {
     }
 }
 
-pub fn build_process_tree(
-    process_list: &[ProcessNode],
-) -> Result<HashMap<i32, ProcessNode>, Box<dyn Error>> {
-    let mut tree = HashMap::new();
-
-    for proc in process_list {
-        tree.insert(proc.pid, proc.clone());
-    }
-
-    for proc in process_list {
-        if proc.ppid != 0 {
-            tree.get_mut(&proc.ppid)
-                .ok_or("Failed to get parent process")?
-                .add_child(proc.pid);
-        }
-    }
-    Ok(tree)
-}
-
-pub fn read_process() -> io::Result<Vec<ProcessNode>> {
+pub fn build_process_tree() -> Result<HashMap<i32, ProcessNode>, Box<dyn Error>> {
     let entries = fs::read_dir(PROC)?;
 
     #[cfg(feature = "rayon")]
@@ -78,10 +59,28 @@ pub fn read_process() -> io::Result<Vec<ProcessNode>> {
     let iter = entries.into_iter();
 
     let pids: Vec<ProcessNode> = iter
-        .filter_map(|e| e.ok().and_then(|entry| check_entry(&entry)))
+        .filter_map(Result::ok)
+        .filter_map(|entry| check_entry(&entry))
         .collect();
 
-    Ok(pids)
+    let mut tree: HashMap<i32, ProcessNode> =
+        pids.into_iter().map(|proc| (proc.pid, proc)).collect();
+
+    let relationships: Vec<(i32, i32)> = {
+        let iter = tree.values();
+
+        iter.filter(|proc| proc.ppid != 0)
+            .map(|proc| (proc.ppid, proc.pid))
+            .collect()
+    };
+
+    for (ppid, pid) in relationships {
+        tree.get_mut(&ppid)
+            .ok_or("Failed to get parent process")?
+            .add_child(pid);
+    }
+
+    Ok(tree)
 }
 
 fn check_entry(entry: &fs::DirEntry) -> Option<ProcessNode> {

@@ -3,7 +3,6 @@ use std::process;
 use nix::unistd::{User, setuid};
 
 pub mod cli;
-pub mod macros;
 pub mod processes;
 pub mod signals;
 

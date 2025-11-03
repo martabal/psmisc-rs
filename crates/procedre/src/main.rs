@@ -1,22 +1,10 @@
 use clap::Parser;
-use procedre::{
-    cli::ProcedreArgs,
-    output,
-    process::{build_process_tree, read_process},
-};
+use procedre::{cli::ProcedreArgs, output, process::build_process_tree};
 
 fn main() {
     ProcedreArgs::parse();
 
-    let process_list = match read_process() {
-        Ok(list) => list,
-        Err(e) => {
-            eprintln!("Failed to read processes: {e}");
-            std::process::exit(1);
-        }
-    };
-
-    let process_tree = match build_process_tree(&process_list) {
+    let process_tree = match build_process_tree() {
         Ok(tree) => tree,
         Err(e) => {
             eprintln!("Failed to build process tree: {e}");
