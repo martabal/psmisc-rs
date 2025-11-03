@@ -14,6 +14,7 @@ repository = "https://github.com/martabal/pstree-rs"
 clap = { version = "4.5.51", features = ["derive"] }
 humantime = "2.3.0"
 nix = { version = "0.30.1", features = ["feature", "signal", "user"] }
+orx-parallel = "3.4.0"
 rayon = { version = "1.11.0" }
 
 [profile.release]

@@ -15,10 +15,12 @@ edition.workspace = true
 workspace = true
 
 [features]
-default = ["rayon"]
+default = ["orx-parallel"]
 rayon = ["dep:rayon"]
+orx-parallel = ["dep:orx-parallel"]
 
 [dependencies]
 clap.workspace = true
-rayon = { workspace = true, optional = true }
 helpers = { path = "../helpers" }
+orx-parallel = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }

@@ -12,3 +12,5 @@ pub fn parse_pid_from_bytes(bytes: &[u8]) -> Option<i32> {
     }
     if result == 0 { None } else { Some(result) }
 }
+
+pub const PROC: &str = "/proc";

@@ -1,5 +1,11 @@
 use std::{collections::HashMap, error::Error, fs, io};
 
+use helpers::{PROC, parse_pid_from_bytes};
+#[cfg(feature = "orx-parallel")]
+use orx_parallel::{IterIntoParIter, ParIter};
+#[cfg(feature = "rayon")]
+use rayon::iter::{ParallelBridge, ParallelIterator};
+
 #[derive(Debug, Clone)]
 pub enum ProcessState {
     Running,
@@ -42,12 +48,6 @@ impl ProcessNode {
     }
 }
 
-use helpers::parse_pid_from_bytes;
-#[cfg(feature = "rayon")]
-use rayon::prelude::*;
-
-const PROC: &str = "/proc";
-
 pub fn build_process_tree(
     process_list: &[ProcessNode],
 ) -> Result<HashMap<i32, ProcessNode>, Box<dyn Error>> {
@@ -72,8 +72,9 @@ pub fn read_process() -> io::Result<Vec<ProcessNode>> {
 
     #[cfg(feature = "rayon")]
     let iter = entries.par_bridge();
-
-    #[cfg(not(feature = "rayon"))]
+    #[cfg(feature = "orx-parallel")]
+    let iter = entries.iter_into_par();
+    #[cfg(all(not(feature = "rayon"), not(feature = "orx-parallel")))]
     let iter = entries.into_iter();
 
     let pids: Vec<ProcessNode> = iter
@@ -92,7 +93,7 @@ fn parse_process(pid: i32) -> Result<ProcessNode, Box<dyn Error>> {
     let mut proc = ProcessNode::new();
     proc.pid = pid;
 
-    let status_file = fs::read_to_string(format!("/proc/{pid}/status"))?;
+    let status_file = fs::read_to_string(format!("{PROC}/{pid}/status"))?;
 
     for line in status_file.lines() {
         let mut parts = line.split_whitespace();

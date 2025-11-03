@@ -10,10 +10,3 @@ edition.workspace = true
 
 [lib]
 crate-type = ["lib"]
-
-[features]
-default = ["rayon"]
-rayon = ["dep:rayon"]
-
-[dependencies]
-rayon = { workspace = true, optional = true }

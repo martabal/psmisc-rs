@@ -7,6 +7,9 @@ pub mod macros;
 pub mod processes;
 pub mod signals;
 
+#[cfg(all(feature = "rayon", feature = "orx-parallel"))]
+compile_error!("feature \"rayon\" and feature \"oxc-parallel\" cannot be enabled at the same time");
+
 pub fn change_user(username: &str) {
     let user = match User::from_name(username) {
         Ok(Some(user)) => user,

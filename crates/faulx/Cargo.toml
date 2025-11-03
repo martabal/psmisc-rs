@@ -15,12 +15,14 @@ edition.workspace = true
 workspace = true
 
 [features]
-default = ["rayon"]
+default = ["orx-parallel"]
 rayon = ["dep:rayon"]
+orx-parallel = ["dep:orx-parallel"]
 
 [dependencies]
 clap.workspace = true
+helpers = { path = "../helpers" }
 humantime.workspace = true
 nix.workspace = true
+orx-parallel = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
-helpers = { path = "../helpers" }

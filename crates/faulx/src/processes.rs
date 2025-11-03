@@ -1,11 +1,11 @@
 use std::{error::Error, fs, io, os::unix::ffi::OsStrExt};
 
-use helpers::parse_pid_from_bytes;
+use helpers::{PROC, parse_pid_from_bytes};
 use nix::unistd::{SysconfVar, sysconf};
+#[cfg(feature = "orx-parallel")]
+use orx_parallel::{IterIntoParIter, ParIter};
 #[cfg(feature = "rayon")]
-use rayon::prelude::*;
-
-const PROC: &str = "/proc";
+use rayon::iter::{ParallelBridge, ParallelIterator};
 
 pub struct OptionsPids {
     pub use_group: bool,
@@ -20,7 +20,9 @@ pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<d
     let entries = fs::read_dir(PROC)?;
     #[cfg(feature = "rayon")]
     let iter = entries.par_bridge();
-    #[cfg(not(feature = "rayon"))]
+    #[cfg(feature = "orx-parallel")]
+    let iter = entries.iter_into_par();
+    #[cfg(all(not(feature = "rayon"), not(feature = "orx-parallel")))]
     let iter = entries.into_iter();
 
     let matching_pids: Vec<i32> = iter
@@ -58,7 +60,9 @@ pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<d
     let entries = fs::read_dir(PROC)?;
     #[cfg(feature = "rayon")]
     let iter = entries.par_bridge();
-    #[cfg(not(feature = "rayon"))]
+    #[cfg(feature = "orx-parallel")]
+    let iter = entries.iter_into_par();
+    #[cfg(all(not(feature = "rayon"), not(feature = "orx-parallel")))]
     let iter = entries.into_iter();
 
     let mut all_pids: Vec<i32> = iter
@@ -107,7 +111,7 @@ fn check_stat(pid: i32) -> Option<Stat> {
 }
 
 fn get_system_uptime() -> f64 {
-    fs::read_to_string("/proc/uptime")
+    fs::read_to_string(format!("{PROC}/uptime"))
         .ok()
         .and_then(|s| s.split_whitespace().next()?.parse::<f64>().ok())
         .unwrap_or(0.0)
