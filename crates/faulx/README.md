@@ -17,6 +17,5 @@ options implemented:
 
 TODO:
 
-- exact
 - regexp
 - processes in the same namespace
