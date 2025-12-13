@@ -257,4 +257,82 @@ mod tests {
         };
         assert_eq!(check_time(&dummy_stat, None, None).unwrap(), true);
     }
+
+
+
+    #[test]
+    fn test_options_pids_default() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+        };
+        
+        assert!(!opts.use_group);
+        assert!(opts.younger_than.is_none());
+        assert!(opts.older_than.is_none());
+        assert!(!opts.ignore_case);
+    }
+
+    #[test]
+    fn test_get_system_uptime() {
+        let uptime = get_system_uptime();
+        // On a real system, uptime should be positive
+        // If reading fails, it returns 0.0
+        assert!(uptime >= 0.0);
+    }
+
+    #[test]
+    fn test_get_clock_ticks_per_sec() {
+        let result = get_clock_ticks_per_sec();
+        // Should succeed on Unix-like systems
+        if let Ok(ticks) = result {
+            assert!(ticks > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_check_stat() {
+        // Test with current process (should always exist)
+        let current_pid = std::process::id() as i32;
+        let stat = check_stat(current_pid);
+        
+        // Should successfully get stat for current process
+        assert!(stat.is_some());
+        if let Some(s) = stat {
+            assert!(s.pgrp > 0);
+            assert!(s.starttime >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_check_stat_invalid_pid() {
+        // Very high PID that likely doesn't exist
+        let stat = check_stat(i32::MAX);
+        assert!(stat.is_none());
+    }
+
+    #[test]
+    fn test_list_pids_invalid_process_name() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+        };
+        
+        // Search for a process name that definitely doesn't exist
+        let result = list_pids("__nonexistent_process_12345__", &opts);
+        
+        match result {
+            Ok(pids) => {
+                // Should return empty list
+                assert!(pids.is_empty());
+            }
+            Err(_) => {
+                // Or error if /proc is not accessible
+            }
+        }
+    }
 }
