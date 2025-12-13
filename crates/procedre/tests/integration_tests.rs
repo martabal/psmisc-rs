@@ -12,8 +12,9 @@ fn test_build_process_tree_returns_tree() {
             // Tree should have at least one process (init/systemd at PID 1)
             assert!(!tree.is_empty(), "Process tree should not be empty");
 
-            // On Linux systems, PID 1 should exist
-            if cfg!(target_os = "linux") {
+            // On Unix-like systems, PID 1 should exist
+            #[cfg(unix)]
+            {
                 assert!(tree.contains_key(&1), "PID 1 (init/systemd) should exist");
             }
         }

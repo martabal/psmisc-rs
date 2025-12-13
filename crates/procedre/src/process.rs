@@ -222,8 +222,9 @@ mod tests {
                 // Tree should not be empty on a real system
                 assert!(!tree.is_empty());
 
-                // On Linux systems, PID 1 should exist
-                if cfg!(target_os = "linux") {
+                // On Unix-like systems, PID 1 should exist
+                #[cfg(unix)]
+                {
                     assert!(tree.contains_key(&1));
                 }
             }
