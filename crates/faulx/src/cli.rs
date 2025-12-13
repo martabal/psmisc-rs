@@ -54,4 +54,13 @@ pub struct FaulxArgs {
     /// Report if the signal was successfully sent
     #[arg(long)]
     pub verbose: bool,
+
+    /// Interpret process_names as an extended regular expression
+    #[cfg(feature = "regex")]
+    #[arg(short = 'r', long)]
+    pub regexp: bool,
+
+    /// Match processes that belong to the same namespaces as PID
+    #[arg(short = 'n', long)]
+    pub namespace: Option<String>,
 }

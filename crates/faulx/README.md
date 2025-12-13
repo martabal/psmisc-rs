@@ -14,8 +14,5 @@ options implemented:
 - interactive mode
 - ignore case
 - kill process running as user
-
-TODO:
-
 - regexp
 - processes in the same namespace

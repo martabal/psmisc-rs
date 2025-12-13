@@ -1,6 +1,9 @@
 [package]
-name = "helpers"
+name = "fuser"
 version = "0.0.1"
+description = "Rust implementation of fuser"
+keywords = ["fuser"]
+categories = ["command-line-utilities", "os"]
 license.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
@@ -8,9 +11,10 @@ repository.workspace = true
 authors.workspace = true
 edition.workspace = true
 
-[lib]
-crate-type = ["lib"]
+[lints]
+workspace = true
 
 [dependencies]
 clap.workspace = true
+helpers = { path = "../helpers" }
 nix.workspace = true

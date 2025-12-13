@@ -18,6 +18,7 @@ workspace = true
 default = ["orx-parallel"]
 rayon = ["dep:rayon"]
 orx-parallel = ["dep:orx-parallel"]
+regex = ["dep:regex"]
 
 [dependencies]
 clap.workspace = true
@@ -26,3 +27,4 @@ humantime.workspace = true
 nix.workspace = true
 orx-parallel = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }

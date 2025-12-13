@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/faulx", "crates/procedre", "crates/helpers"]
+members = ["crates/faulx", "crates/procedre", "crates/helpers", "crates/fuser"]
 
 [workspace.package]
 authors = ["martabal"]
@@ -24,6 +24,11 @@ nix = { version = "0.30.1", default-features = false, features = [
 ] }
 orx-parallel = { version = "3.4.0", default-features = false }
 rayon = { version = "1.11.0", default-features = false }
+regex = { version = "1.11", default-features = false, features = [
+  "std",
+  "perf",
+  "unicode-case",
+] }
 
 [profile.release]
 opt-level = 3
