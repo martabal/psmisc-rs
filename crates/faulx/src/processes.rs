@@ -258,8 +258,6 @@ mod tests {
         assert_eq!(check_time(&dummy_stat, None, None).unwrap(), true);
     }
 
-
-
     #[test]
     fn test_options_pids_default() {
         let opts = OptionsPids {
@@ -268,7 +266,7 @@ mod tests {
             older_than: None,
             ignore_case: false,
         };
-        
+
         assert!(!opts.use_group);
         assert!(opts.younger_than.is_none());
         assert!(opts.older_than.is_none());
@@ -297,7 +295,7 @@ mod tests {
         // Test with current process (should always exist)
         let current_pid = std::process::id() as i32;
         let stat = check_stat(current_pid);
-        
+
         // Should successfully get stat for current process
         assert!(stat.is_some());
         if let Some(s) = stat {
@@ -321,10 +319,10 @@ mod tests {
             older_than: None,
             ignore_case: false,
         };
-        
+
         // Search for a process name that definitely doesn't exist
         let result = list_pids("__nonexistent_process_12345__", &opts);
-        
+
         match result {
             Ok(pids) => {
                 // Should return empty list

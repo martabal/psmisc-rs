@@ -73,7 +73,7 @@ mod tests {
         assert_eq!(parse_signal("int"), Some(Signal::SIGINT));
         assert_eq!(parse_signal("term"), Some(Signal::SIGTERM));
         assert_eq!(parse_signal("kill"), Some(Signal::SIGKILL));
-        
+
         // Mixed case
         assert_eq!(parse_signal("InT"), Some(Signal::SIGINT));
         assert_eq!(parse_signal("TeRm"), Some(Signal::SIGTERM));
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn test_list_signals_contains_expected() {
         let signals = list_signals();
-        
+
         // Check that common signals are in the list
         assert!(signals.contains("INT"));
         assert!(signals.contains("TERM"));
@@ -112,13 +112,13 @@ mod tests {
     #[test]
     fn test_list_signals_format() {
         let signals = list_signals();
-        
+
         // Should be space-separated
         assert!(signals.contains(' '));
-        
+
         // Should not have trailing space
         assert!(!signals.ends_with(' '));
-        
+
         // Should not be empty
         assert!(!signals.is_empty());
     }
@@ -127,7 +127,7 @@ mod tests {
     fn test_list_signals_count() {
         let signals = list_signals();
         let count = signals.split(' ').count();
-        
+
         // Should match the number of signals we defined
         assert_eq!(count, SIGNALS.len());
     }

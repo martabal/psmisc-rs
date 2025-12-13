@@ -152,13 +152,13 @@ mod tests {
     #[test]
     fn test_process_node_add_child() {
         let mut node = ProcessNode::new();
-        
+
         // First child
         node.add_child(100);
         assert!(node.children.is_some());
         assert_eq!(node.children.as_ref().unwrap().len(), 1);
         assert_eq!(node.children.as_ref().unwrap()[0], 100);
-        
+
         // Second child
         node.add_child(200);
         assert_eq!(node.children.as_ref().unwrap().len(), 2);
@@ -168,11 +168,11 @@ mod tests {
     #[test]
     fn test_process_node_add_multiple_children() {
         let mut node = ProcessNode::new();
-        
+
         for i in 1..=5 {
             node.add_child(i * 100);
         }
-        
+
         assert_eq!(node.children.as_ref().unwrap().len(), 5);
         for i in 1i32..=5 {
             assert_eq!(node.children.as_ref().unwrap()[(i - 1) as usize], i * 100);
@@ -190,7 +190,7 @@ mod tests {
             ProcessState::Dead,
             ProcessState::Idle,
         ];
-        
+
         for state in states {
             let debug_str = format!("{:?}", state);
             assert!(!debug_str.is_empty());
@@ -205,7 +205,7 @@ mod tests {
         node.name = "test".to_string();
         node.state = ProcessState::Running;
         node.add_child(456);
-        
+
         let debug_str = format!("{:?}", node);
         assert!(debug_str.contains("123"));
         assert!(debug_str.contains("test"));
@@ -216,12 +216,12 @@ mod tests {
         // This test just verifies we can call build_process_tree without panicking
         // It should at least find the current process
         let result = build_process_tree();
-        
+
         match result {
             Ok(tree) => {
                 // Tree should not be empty on a real system
                 assert!(!tree.is_empty());
-                
+
                 // Should contain PID 1 (init/systemd) on Unix-like systems
                 assert!(tree.contains_key(&1));
             }

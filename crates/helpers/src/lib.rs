@@ -42,12 +42,12 @@ mod tests {
     fn test_parse_pid_from_bytes_invalid() {
         // Empty input
         assert_eq!(parse_pid_from_bytes(b""), None);
-        
+
         // Zero should return None
         assert_eq!(parse_pid_from_bytes(b"0"), None);
         assert_eq!(parse_pid_from_bytes(b"00"), None);
         assert_eq!(parse_pid_from_bytes(b"000"), None);
-        
+
         // Non-digit characters
         assert_eq!(parse_pid_from_bytes(b"abc"), None);
         assert_eq!(parse_pid_from_bytes(b"12a"), None);
@@ -55,10 +55,10 @@ mod tests {
         assert_eq!(parse_pid_from_bytes(b"1 2"), None);
         assert_eq!(parse_pid_from_bytes(b"-1"), None);
         assert_eq!(parse_pid_from_bytes(b"+1"), None);
-        
+
         // Too long (more than 10 digits)
         assert_eq!(parse_pid_from_bytes(b"12345678901"), None);
-        
+
         // Overflow i32::MAX
         assert_eq!(parse_pid_from_bytes(b"2147483648"), None);
         assert_eq!(parse_pid_from_bytes(b"9999999999"), None);
@@ -69,10 +69,10 @@ mod tests {
         // Single digit
         assert_eq!(parse_pid_from_bytes(b"1"), Some(1));
         assert_eq!(parse_pid_from_bytes(b"9"), Some(9));
-        
+
         // Leading zeros should result in None (zero PID)
         assert_eq!(parse_pid_from_bytes(b"01"), Some(1));
-        
+
         // Maximum valid PID
         assert_eq!(parse_pid_from_bytes(b"2147483647"), Some(2147483647));
     }
