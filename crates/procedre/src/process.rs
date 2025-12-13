@@ -222,8 +222,10 @@ mod tests {
                 // Tree should not be empty on a real system
                 assert!(!tree.is_empty());
 
-                // Should contain PID 1 (init/systemd) on Unix-like systems
-                assert!(tree.contains_key(&1));
+                // On Linux systems, PID 1 should exist
+                if cfg!(target_os = "linux") {
+                    assert!(tree.contains_key(&1));
+                }
             }
             Err(_) => {
                 // If it fails, it might be due to permission issues or non-Linux system

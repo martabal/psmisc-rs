@@ -70,7 +70,7 @@ mod tests {
         assert_eq!(parse_pid_from_bytes(b"1"), Some(1));
         assert_eq!(parse_pid_from_bytes(b"9"), Some(9));
 
-        // Leading zeros should result in None (zero PID)
+        // Leading zeros are parsed correctly (non-zero result)
         assert_eq!(parse_pid_from_bytes(b"01"), Some(1));
 
         // Maximum valid PID
