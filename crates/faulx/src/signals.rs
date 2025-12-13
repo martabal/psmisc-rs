@@ -86,7 +86,7 @@ mod tests {
         assert_eq!(parse_signal(""), None);
         assert_eq!(parse_signal("123"), None);
         assert_eq!(parse_signal("SIG"), None);
-        assert_eq!(parse_signal("SIGINT"), None); // We expect just "INT", not "SIGINT"
+        assert_eq!(parse_signal("SIGINT"), None); // Function expects short signal names without 'SIG' prefix
     }
 
     #[test]

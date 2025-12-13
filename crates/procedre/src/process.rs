@@ -229,7 +229,7 @@ mod tests {
                 }
             }
             Err(_) => {
-                // If it fails, it might be due to permission issues or non-Linux system
+                // If it fails, it might be due to permission issues or non-Unix system
                 // We'll allow this test to pass in such cases
             }
         }
