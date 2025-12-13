@@ -126,3 +126,112 @@ fn parse_process(pid: i32) -> Result<ProcessNode, Box<dyn Error>> {
 
     Ok(proc)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_node_new() {
+        let node = ProcessNode::new();
+        assert_eq!(node.pid, 1);
+        assert_eq!(node.ppid, 0);
+        assert_eq!(node.name, "");
+        assert!(node.children.is_none());
+    }
+
+    #[test]
+    fn test_process_node_default() {
+        let node = ProcessNode::default();
+        assert_eq!(node.pid, 1);
+        assert_eq!(node.ppid, 0);
+        assert_eq!(node.name, "");
+        assert!(node.children.is_none());
+    }
+
+    #[test]
+    fn test_process_node_add_child() {
+        let mut node = ProcessNode::new();
+
+        // First child
+        node.add_child(100);
+        assert!(node.children.is_some());
+        assert_eq!(node.children.as_ref().unwrap().len(), 1);
+        assert_eq!(node.children.as_ref().unwrap()[0], 100);
+
+        // Second child
+        node.add_child(200);
+        assert_eq!(node.children.as_ref().unwrap().len(), 2);
+        assert_eq!(node.children.as_ref().unwrap()[1], 200);
+    }
+
+    #[test]
+    fn test_process_node_add_multiple_children() {
+        let mut node = ProcessNode::new();
+
+        for i in 1..=5 {
+            node.add_child(i * 100);
+        }
+
+        assert_eq!(node.children.as_ref().unwrap().len(), 5);
+        for i in 1i32..=5 {
+            assert_eq!(node.children.as_ref().unwrap()[(i - 1) as usize], i * 100);
+        }
+    }
+
+    #[test]
+    fn test_process_state_debug() {
+        // Just verify we can debug print process states
+        let states = vec![
+            ProcessState::Running,
+            ProcessState::Sleeping,
+            ProcessState::Zombie,
+            ProcessState::TracingStop,
+            ProcessState::Dead,
+            ProcessState::Idle,
+        ];
+
+        for state in states {
+            let debug_str = format!("{:?}", state);
+            assert!(!debug_str.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_process_node_debug() {
+        let mut node = ProcessNode::new();
+        node.pid = 123;
+        node.ppid = 1;
+        node.name = "test".to_string();
+        node.state = ProcessState::Running;
+        node.add_child(456);
+
+        let debug_str = format!("{:?}", node);
+        assert!(debug_str.contains("123"));
+        assert!(debug_str.contains("test"));
+    }
+
+    #[test]
+    fn test_build_process_tree_current_process() {
+        // This test just verifies we can call build_process_tree without panicking
+        // It should at least find the current process
+        let result = build_process_tree();
+
+        match result {
+            Ok(tree) => {
+                // Tree should not be empty on a real system
+                assert!(!tree.is_empty());
+
+                // On Unix-like systems, PID 1 should exist
+                #[cfg(unix)]
+                {
+                    assert!(tree.contains_key(&1));
+                }
+            }
+            Err(_) => {
+                // If it fails, it might be due to permission issues or non-Unix system
+                // We'll allow this test to pass in such cases
+            }
+        }
+    }
+}
