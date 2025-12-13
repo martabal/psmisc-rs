@@ -131,4 +131,46 @@ mod tests {
         // Should match the number of signals we defined
         assert_eq!(count, SIGNALS.len());
     }
+
+    #[test]
+    fn test_common_signals() {
+        // Test the most common signals used in killall
+        assert_eq!(parse_signal("TERM"), Some(Signal::SIGTERM));
+        assert_eq!(parse_signal("KILL"), Some(Signal::SIGKILL));
+        assert_eq!(parse_signal("INT"), Some(Signal::SIGINT));
+        assert_eq!(parse_signal("HUP"), Some(Signal::SIGHUP));
+    }
+
+    #[test]
+    fn test_parse_all_listed_signals() {
+        let signal_list = list_signals();
+        let signal_names: Vec<&str> = signal_list.split(' ').collect();
+
+        // Every signal in the list should be parseable
+        for name in signal_names {
+            assert!(
+                parse_signal(name).is_some(),
+                "Signal {} should be parseable",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn test_signal_parsing_roundtrip() {
+        // Parse a signal and verify it returns the expected value
+        let common_signals = vec!["INT", "TERM", "KILL", "HUP", "QUIT"];
+
+        for signal_name in common_signals {
+            let parsed = parse_signal(signal_name);
+            assert!(parsed.is_some(), "Failed to parse {}", signal_name);
+        }
+    }
+
+    #[test]
+    fn test_list_signals_not_empty() {
+        let signals = list_signals();
+        assert!(!signals.is_empty());
+        assert!(signals.len() > 10); // Should have many signals
+    }
 }

@@ -333,4 +333,61 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_processes_options_construction() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+        };
+
+        assert!(!opts.use_group);
+        assert!(opts.younger_than.is_none());
+        assert!(opts.older_than.is_none());
+        assert!(!opts.ignore_case);
+    }
+
+    #[test]
+    fn test_list_pids_nonexistent_process() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+        };
+
+        // Try to find a process that definitely doesn't exist
+        let result = list_pids("__this_process_definitely_does_not_exist_12345__", &opts);
+
+        // Should either return an empty list or an error
+        match result {
+            Ok(pids) => assert!(pids.is_empty()),
+            Err(_) => {} // Error is also acceptable if /proc is not accessible
+        }
+    }
+
+    #[test]
+    fn test_list_pids_with_case_sensitivity() {
+        // Test case sensitive
+        let opts_sensitive = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+        };
+
+        // Test case insensitive
+        let opts_insensitive = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: true,
+        };
+
+        // Both should work without panicking
+        let _ = list_pids("systemd", &opts_sensitive);
+        let _ = list_pids("SYSTEMD", &opts_insensitive);
+    }
 }

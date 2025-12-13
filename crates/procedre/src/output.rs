@@ -149,4 +149,13 @@ mod tests {
         let result = print_tree_with_pid(&tree, 1, 2, "│ ", true);
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_print_tree_with_empty_tree() {
+        let tree: HashMap<i32, ProcessNode> = HashMap::new();
+
+        // Should not panic with empty tree
+        let result = print_tree_with_pid(&tree, 1, 0, "", true);
+        assert!(result.is_ok());
+    }
 }
