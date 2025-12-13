@@ -63,17 +63,20 @@ pub fn build_process_tree() -> Result<HashMap<i32, ProcessNode>, Box<dyn Error>>
         .filter_map(|entry| check_entry(&entry))
         .collect();
 
-    let mut tree: HashMap<i32, ProcessNode> =
-        pids.into_iter().map(|proc| (proc.pid, proc)).collect();
+    // Pre-allocate HashMap with capacity to reduce rehashing
+    let mut tree: HashMap<i32, ProcessNode> = HashMap::with_capacity(pids.len());
 
-    let relationships: Vec<(i32, i32)> = {
-        let iter = tree.values();
+    // Collect relationships while building tree to avoid second iteration
+    let mut relationships: Vec<(i32, i32)> = Vec::with_capacity(pids.len());
 
-        iter.filter(|proc| proc.ppid != 0)
-            .map(|proc| (proc.ppid, proc.pid))
-            .collect()
-    };
+    for proc in pids {
+        if proc.ppid != 0 {
+            relationships.push((proc.ppid, proc.pid));
+        }
+        tree.insert(proc.pid, proc);
+    }
 
+    // Build parent-child relationships
     for (ppid, pid) in relationships {
         tree.get_mut(&ppid)
             .ok_or("Failed to get parent process")?
@@ -89,35 +92,52 @@ fn check_entry(entry: &fs::DirEntry) -> Option<ProcessNode> {
 }
 
 fn parse_process(pid: i32) -> Result<ProcessNode, Box<dyn Error>> {
+    const REQUIRED_FIELDS: u8 = 7; // Name (1) | State (2) | PPid (4) = 7
+
     let mut proc = ProcessNode::new();
     proc.pid = pid;
 
     let status_file = fs::read_to_string(format!("{PROC}/{pid}/status"))?;
 
+    let mut found_fields = 0u8;
+
     for line in status_file.lines() {
-        let mut parts = line.split_whitespace();
-        match parts.next() {
-            Some("Name:") => {
-                if let Some(name) = parts.next() {
+        // Optimization: check first char before full string comparison
+        let Some(&first_char) = line.as_bytes().first() else {
+            continue;
+        };
+
+        match first_char {
+            b'N' if line.starts_with("Name:") => {
+                // starts_with ensures we can safely slice after "Name:"
+                if let Some(name) = line["Name:".len()..].split_whitespace().next() {
                     proc.name = name.to_string();
+                    found_fields |= 1;
                 }
             }
-            Some("PPid:") => {
-                if let Some(ppid_str) = parts.next() {
-                    proc.ppid = ppid_str.parse::<i32>()?;
-                    break;
-                }
-            }
-            Some("State:") => {
-                if let Some(state_str) = parts.next() {
-                    proc.state = match state_str {
-                        "R" => ProcessState::Running,
-                        "S" => ProcessState::Sleeping,
-                        "Z" => ProcessState::Zombie,
-                        "T" => ProcessState::TracingStop,
-                        "X" => ProcessState::Dead,
+            b'S' if line.starts_with("State:") => {
+                // starts_with ensures we can safely slice after "State:"
+                if let Some(state_str) = line["State:".len()..].split_whitespace().next() {
+                    proc.state = match state_str.as_bytes().first() {
+                        Some(&b'R') => ProcessState::Running,
+                        Some(&b'S') => ProcessState::Sleeping,
+                        Some(&b'Z') => ProcessState::Zombie,
+                        Some(&b'T') => ProcessState::TracingStop,
+                        Some(&b'X') => ProcessState::Dead,
                         _ => ProcessState::Idle,
                     };
+                    found_fields |= 2;
+                }
+            }
+            b'P' if line.starts_with("PPid:") => {
+                // starts_with ensures we can safely slice after "PPid:"
+                if let Some(ppid_str) = line["PPid:".len()..].split_whitespace().next() {
+                    proc.ppid = ppid_str.parse::<i32>()?;
+                    found_fields |= 4;
+                    // Early exit if we've found all required fields
+                    if found_fields == REQUIRED_FIELDS {
+                        break;
+                    }
                 }
             }
             _ => {}

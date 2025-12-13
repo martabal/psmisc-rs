@@ -96,16 +96,22 @@ struct Stat {
 fn check_stat(pid: i32) -> Option<Stat> {
     let stat_path = format!("{PROC}/{pid}/stat");
     let contents = fs::read_to_string(stat_path).ok()?;
+
+    // Split iterator is more efficient than collecting
     let mut parts = contents.split_whitespace();
 
-    for _ in 0..4 {
-        parts.next()?;
-    }
+    // Skip first 4 fields (pid, comm, state, ppid)
+    // Use nth() which is more efficient than multiple next() calls
+    parts.nth(3)?;
+
+    // 5th field is pgrp
     let pgrp: i32 = parts.next()?.parse().ok()?;
 
-    for _ in 0..16 {
-        parts.next()?;
-    }
+    // Skip next 16 fields to reach starttime (field 22)
+    // Use nth(15) instead of loop
+    parts.nth(15)?;
+
+    // Field 22 is starttime
     let starttime: f64 = parts.next()?.parse().ok()?;
     Some(Stat { pgrp, starttime })
 }
@@ -198,7 +204,7 @@ mod tests {
     fn test_parse_pid_valid() {
         assert_eq!(parse_pid_from_bytes(b"1"), Some(1));
         assert_eq!(parse_pid_from_bytes(b"12345"), Some(12345));
-        assert_eq!(parse_pid_from_bytes(b"429496729"), Some(429496729));
+        assert_eq!(parse_pid_from_bytes(b"429496729"), Some(429_496_729));
     }
 
     #[test]
@@ -214,7 +220,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("fake_proc_{}", nanos))
+        std::env::temp_dir().join(format!("fake_proc_{nanos}"))
     }
 
     fn setup_fake_proc(tmp: &Path, entries: &[(&str, &str)]) {
@@ -224,7 +230,7 @@ mod tests {
             fs::create_dir_all(&proc_dir).unwrap();
             let comm_path = proc_dir.join("comm");
             let mut f = File::create(comm_path).unwrap();
-            writeln!(f, "{}", comm).unwrap();
+            writeln!(f, "{comm}").unwrap();
         }
     }
 
@@ -255,7 +261,49 @@ mod tests {
             pgrp: 1,
             starttime: 0.0,
         };
-        assert_eq!(check_time(&dummy_stat, None, None).unwrap(), true);
+        assert!(check_time(&dummy_stat, None, None).unwrap());
+    }
+
+    #[test]
+    fn test_check_stat_self() {
+        // Test that check_stat works for the current process
+        #[allow(clippy::cast_possible_wrap)]
+        let pid = std::process::id() as i32;
+        let result = check_stat(pid);
+        assert!(
+            result.is_some(),
+            "check_stat should succeed for current process"
+        );
+
+        let stat = result.expect("check_stat should return Some for current process");
+        assert!(stat.pgrp > 0, "Process group should be positive");
+        assert!(stat.starttime >= 0.0, "Start time should be non-negative");
+    }
+
+    #[test]
+    fn test_check_stat_init() {
+        // Test that check_stat works for PID 1 (init/systemd)
+        let result = check_stat(1);
+        assert!(result.is_some(), "check_stat should succeed for PID 1");
+
+        let stat = result.expect("check_stat should return Some for PID 1");
+        assert!(stat.pgrp > 0, "Process group should be positive");
+        assert!(stat.starttime >= 0.0, "Start time should be non-negative");
+    }
+
+    #[test]
+    fn test_list_pids_basic() {
+        // Test that list_pids can find init/systemd
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+        };
+
+        let result = list_pids("systemd", &opts);
+        // systemd might not exist on all systems, so we just verify the function runs
+        assert!(result.is_ok(), "list_pids should succeed");
     }
 
     #[test]
