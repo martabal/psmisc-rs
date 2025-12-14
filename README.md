@@ -2,14 +2,14 @@
 
 Implementation of psmisc utilities in rust. This is an early WIP.
 
-WIP:
+Implemented:
 
 - faulx (killall implementation)
 - procedre (pstree implementation)
+- fuser (identify processes using files/sockets)
 
 TODO:
 
-- fuser
 - prstat
 - pslog
 - peekfd

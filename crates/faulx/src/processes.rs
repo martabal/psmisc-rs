@@ -6,16 +6,33 @@ use nix::unistd::{SysconfVar, sysconf};
 use orx_parallel::{IterIntoParIter, ParIter};
 #[cfg(feature = "rayon")]
 use rayon::iter::{ParallelBridge, ParallelIterator};
+#[cfg(feature = "regex")]
+use regex::Regex;
 
-pub struct OptionsPids {
+pub struct OptionsPids<'a> {
     pub use_group: bool,
     pub younger_than: Option<humantime::Duration>,
     pub older_than: Option<humantime::Duration>,
     pub ignore_case: bool,
+    #[cfg(feature = "regex")]
+    pub regexp: bool,
+    pub namespace: Option<&'a str>,
 }
 
-pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<dyn Error>> {
+pub fn list_pids(target_name: &str, opt: &OptionsPids<'_>) -> Result<Vec<i32>, Box<dyn Error>> {
     let target_bytes = target_name.as_bytes();
+
+    #[cfg(feature = "regex")]
+    let regex = if opt.regexp {
+        let pattern = if opt.ignore_case {
+            &format!("(?i){target_name}")
+        } else {
+            target_name
+        };
+        Some(Regex::new(pattern)?)
+    } else {
+        None
+    };
 
     let entries = fs::read_dir(PROC)?;
     #[cfg(feature = "rayon")]
@@ -28,16 +45,28 @@ pub fn list_pids(target_name: &str, opt: &OptionsPids) -> Result<Vec<i32>, Box<d
     let matching_pids: Vec<i32> = iter
         .filter_map(std::result::Result::ok)
         .filter_map(|entry| {
+            #[cfg(feature = "regex")]
+            let pid = if opt.regexp {
+                check_entry_regex(&entry, regex.as_ref()?)?
+            } else {
+                check_entry(&entry, target_bytes, opt.ignore_case)?
+            };
+            #[cfg(not(feature = "regex"))]
             let pid = check_entry(&entry, target_bytes, opt.ignore_case)?;
             let stat = check_stat(pid)?;
-            if matches!(
+            let time_matches = matches!(
                 check_time(&stat, opt.younger_than, opt.older_than),
                 Ok(true)
-            ) {
-                Some(pid)
-            } else {
-                None
+            );
+            if !time_matches {
+                return None;
             }
+            if let Some(ns) = opt.namespace
+                && !check_namespace(pid, ns).unwrap_or(false)
+            {
+                return None;
+            }
+            Some(pid)
         })
         .collect();
 
@@ -96,16 +125,22 @@ struct Stat {
 fn check_stat(pid: i32) -> Option<Stat> {
     let stat_path = format!("{PROC}/{pid}/stat");
     let contents = fs::read_to_string(stat_path).ok()?;
+
+    // Split iterator is more efficient than collecting
     let mut parts = contents.split_whitespace();
 
-    for _ in 0..4 {
-        parts.next()?;
-    }
+    // Skip first 4 fields (pid, comm, state, ppid)
+    // Use nth() which is more efficient than multiple next() calls
+    parts.nth(3)?;
+
+    // 5th field is pgrp
     let pgrp: i32 = parts.next()?.parse().ok()?;
 
-    for _ in 0..16 {
-        parts.next()?;
-    }
+    // Skip next 16 fields to reach starttime (field 22)
+    // Use nth(15) instead of loop
+    parts.nth(15)?;
+
+    // Field 22 is starttime
     let starttime: f64 = parts.next()?.parse().ok()?;
     Some(Stat { pgrp, starttime })
 }
@@ -186,6 +221,37 @@ fn check_entry(entry: &fs::DirEntry, target_bytes: &[u8], case_insensitive: bool
     (name == target_bytes).then_some(pid)
 }
 
+#[cfg(feature = "regex")]
+fn check_entry_regex(entry: &fs::DirEntry, regex: &Regex) -> Option<i32> {
+    let pid = parse_pid_from_bytes(entry.file_name().as_bytes())?;
+
+    let comm_path = format!("{PROC}/{pid}/comm");
+    let mut buf = [0u8; 64];
+    let len = fs::File::open(&comm_path)
+        .ok()
+        .and_then(|mut f| io::Read::read(&mut f, &mut buf).ok())?;
+
+    let name = if len > 0 && buf[len - 1] == b'\n' {
+        &buf[..len - 1]
+    } else {
+        &buf[..len]
+    };
+
+    let name_str = std::str::from_utf8(name).ok()?;
+    regex.is_match(name_str).then_some(pid)
+}
+
+fn check_namespace(pid: i32, ns_type: &str) -> Result<bool, Box<dyn Error>> {
+    let current_pid = std::process::id();
+    let current_ns_path = format!("{PROC}/{current_pid}/ns/{ns_type}");
+    let target_ns_path = format!("{PROC}/{pid}/ns/{ns_type}");
+
+    let current_ns = fs::read_link(&current_ns_path)?;
+    let target_ns = fs::read_link(&target_ns_path)?;
+
+    Ok(current_ns == target_ns)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,7 +264,7 @@ mod tests {
     fn test_parse_pid_valid() {
         assert_eq!(parse_pid_from_bytes(b"1"), Some(1));
         assert_eq!(parse_pid_from_bytes(b"12345"), Some(12345));
-        assert_eq!(parse_pid_from_bytes(b"429496729"), Some(429496729));
+        assert_eq!(parse_pid_from_bytes(b"429496729"), Some(429_496_729));
     }
 
     #[test]
@@ -214,7 +280,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("fake_proc_{}", nanos))
+        std::env::temp_dir().join(format!("fake_proc_{nanos}"))
     }
 
     fn setup_fake_proc(tmp: &Path, entries: &[(&str, &str)]) {
@@ -224,7 +290,7 @@ mod tests {
             fs::create_dir_all(&proc_dir).unwrap();
             let comm_path = proc_dir.join("comm");
             let mut f = File::create(comm_path).unwrap();
-            writeln!(f, "{}", comm).unwrap();
+            writeln!(f, "{comm}").unwrap();
         }
     }
 
@@ -255,6 +321,237 @@ mod tests {
             pgrp: 1,
             starttime: 0.0,
         };
-        assert_eq!(check_time(&dummy_stat, None, None).unwrap(), true);
+        assert!(check_time(&dummy_stat, None, None).unwrap());
+    }
+
+    #[test]
+    fn test_check_stat_self() {
+        // Test that check_stat works for the current process
+        #[allow(clippy::cast_possible_wrap)]
+        let pid = std::process::id() as i32;
+        let result = check_stat(pid);
+        assert!(
+            result.is_some(),
+            "check_stat should succeed for current process"
+        );
+
+        let stat = result.expect("check_stat should return Some for current process");
+        assert!(stat.pgrp > 0, "Process group should be positive");
+        assert!(stat.starttime >= 0.0, "Start time should be non-negative");
+    }
+
+    #[test]
+    fn test_check_stat_init() {
+        // Test that check_stat works for PID 1 (init/systemd)
+        let result = check_stat(1);
+        assert!(result.is_some(), "check_stat should succeed for PID 1");
+
+        let stat = result.expect("check_stat should return Some for PID 1");
+        assert!(stat.pgrp > 0, "Process group should be positive");
+        assert!(stat.starttime >= 0.0, "Start time should be non-negative");
+    }
+
+    #[test]
+    fn test_list_pids_basic() {
+        // Test that list_pids can find init/systemd
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+            #[cfg(feature = "regex")]
+            regexp: false,
+            namespace: None,
+        };
+
+        let result = list_pids("systemd", &opts);
+        // systemd might not exist on all systems, so we just verify the function runs
+        assert!(result.is_ok(), "list_pids should succeed");
+    }
+
+    #[test]
+    fn test_options_pids_default() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+            #[cfg(feature = "regex")]
+            regexp: false,
+            namespace: None,
+        };
+
+        assert!(!opts.use_group);
+        assert!(opts.younger_than.is_none());
+        assert!(opts.older_than.is_none());
+        assert!(!opts.ignore_case);
+    }
+
+    #[test]
+    fn test_get_system_uptime() {
+        let uptime = get_system_uptime();
+        // On a real system, uptime should be positive
+        // If reading fails, it returns 0.0
+        assert!(uptime >= 0.0);
+    }
+
+    #[test]
+    fn test_get_clock_ticks_per_sec() {
+        let result = get_clock_ticks_per_sec();
+        // Should succeed on Unix-like systems
+        if let Ok(ticks) = result {
+            assert!(ticks > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_check_stat() {
+        // Test with current process (should always exist)
+        let current_pid = std::process::id() as i32;
+        let stat = check_stat(current_pid);
+
+        // Should successfully get stat for current process
+        assert!(stat.is_some());
+        if let Some(s) = stat {
+            assert!(s.pgrp > 0);
+            assert!(s.starttime >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_check_stat_invalid_pid() {
+        // Very high PID that likely doesn't exist
+        let stat = check_stat(i32::MAX);
+        assert!(stat.is_none());
+    }
+
+    #[test]
+    fn test_list_pids_invalid_process_name() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+            #[cfg(feature = "regex")]
+            regexp: false,
+            namespace: None,
+        };
+
+        // Search for a process name that definitely doesn't exist
+        let result = list_pids("__nonexistent_process_12345__", &opts);
+
+        match result {
+            Ok(pids) => {
+                // Should return empty list
+                assert!(pids.is_empty());
+            }
+            Err(_) => {
+                // Or error if /proc is not accessible
+            }
+        }
+    }
+
+    #[test]
+    fn test_processes_options_construction() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+            #[cfg(feature = "regex")]
+            regexp: false,
+            namespace: None,
+        };
+
+        assert!(!opts.use_group);
+        assert!(opts.younger_than.is_none());
+        assert!(opts.older_than.is_none());
+        assert!(!opts.ignore_case);
+    }
+
+    #[test]
+    fn test_list_pids_nonexistent_process() {
+        let opts = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+            #[cfg(feature = "regex")]
+            regexp: false,
+            namespace: None,
+        };
+
+        // Try to find a process that definitely doesn't exist
+        let result = list_pids("__this_process_definitely_does_not_exist_12345__", &opts);
+
+        // Should either return an empty list or an error
+        match result {
+            Ok(pids) => assert!(pids.is_empty()),
+            Err(_) => {} // Error is also acceptable if /proc is not accessible
+        }
+    }
+
+    #[test]
+    fn test_list_pids_with_case_sensitivity() {
+        // Test case sensitive
+        let opts_sensitive = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: false,
+            #[cfg(feature = "regex")]
+            regexp: false,
+            namespace: None,
+        };
+
+        // Test case insensitive
+        let opts_insensitive = OptionsPids {
+            use_group: false,
+            younger_than: None,
+            older_than: None,
+            ignore_case: true,
+            #[cfg(feature = "regex")]
+            regexp: false,
+            namespace: None,
+        };
+
+        // Both should work without panicking
+        let _ = list_pids("systemd", &opts_sensitive);
+        let _ = list_pids("SYSTEMD", &opts_insensitive);
+    }
+
+    #[test]
+    #[cfg(feature = "regex")]
+    fn test_regex_matching() {
+        // Test basic regex matching
+        let regex = Regex::new("bash.*").unwrap();
+        assert!(regex.is_match("bash"));
+        assert!(regex.is_match("bashrc"));
+        assert!(!regex.is_match("sshd"));
+    }
+
+    #[test]
+    #[cfg(feature = "regex")]
+    fn test_regex_case_insensitive() {
+        // Test case insensitive regex matching
+        let regex = Regex::new("(?i)bash").unwrap();
+        assert!(regex.is_match("BASH"));
+        assert!(regex.is_match("bash"));
+        assert!(regex.is_match("Bash"));
+    }
+
+    #[test]
+    fn test_namespace_same_process() {
+        // Test that a process is in the same namespace as itself
+        let current_pid = std::process::id() as i32;
+        // Test common namespace types
+        for ns_type in &["pid", "net", "mnt", "ipc"] {
+            if let Ok(result) = check_namespace(current_pid, ns_type) {
+                assert!(
+                    result,
+                    "Current process should be in its own {ns_type} namespace"
+                );
+            }
+        }
     }
 }

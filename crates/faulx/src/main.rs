@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::Parser;
-use helpers::{macros::QUIET, qprintln};
+use helpers::{list_signals, macros::QUIET, parse_signal, qprintln};
 use nix::{
     sys::signal::{Signal, kill},
     unistd::Pid,
@@ -15,7 +15,6 @@ use faulx::{
     change_user,
     cli::{FaulxArgs, MAX_NAMES},
     processes::{OptionsPids, list_pids},
-    signals::{list_signals, parse_signal},
 };
 
 fn main() {
@@ -55,6 +54,9 @@ fn main() {
             younger_than: args.younger_than,
             older_than: args.older_than,
             ignore_case: args.ignore_case,
+            #[cfg(feature = "regex")]
+            regexp: args.regexp,
+            namespace: args.namespace.as_deref(),
         };
         let pids = match list_pids(process_name, &opts) {
             Ok(pids) => pids,

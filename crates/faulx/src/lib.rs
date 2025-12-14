@@ -4,7 +4,6 @@ use nix::unistd::{User, setuid};
 
 pub mod cli;
 pub mod processes;
-pub mod signals;
 
 #[cfg(all(feature = "rayon", feature = "orx-parallel"))]
 compile_error!("feature \"rayon\" and feature \"oxc-parallel\" cannot be enabled at the same time");
