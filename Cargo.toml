@@ -11,20 +11,20 @@ homepage = "https://github.com/martabal/pstree-rs"
 repository = "https://github.com/martabal/pstree-rs"
 
 [workspace.dependencies]
-clap = { version = "4.5.53", default-features = false, features = [
+clap = { version = "4.5.58", default-features = false, features = [
   "color",
   "derive",
   "std",
 ] }
 humantime = { version = "2.3.0", default-features = false }
-nix = { version = "0.30.1", default-features = false, features = [
+nix = { version = "0.31.1", default-features = false, features = [
   "feature",
   "signal",
   "user",
 ] }
 orx-parallel = { version = "3.4.0", default-features = false }
 rayon = { version = "1.11.0", default-features = false }
-regex = { version = "1.11", default-features = false, features = [
+regex = { version = "1.12", default-features = false, features = [
   "std",
   "perf",
   "unicode-case",
